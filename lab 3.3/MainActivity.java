@@ -1,22 +1,25 @@
 package com.example.lab33;
 
+
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+
 import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.Toast;
-
-import androidx.appcompat.app.AppCompatActivity;
-
-import java.util.ArrayList;
 import java.util.Random;
+import java.util.Map;
+import java.util.Arrays;
+import java.util.TreeMap;
+import java.util.Iterator;
+import static java.util.Map.Entry.*;
 
 public class MainActivity extends AppCompatActivity {
-    RadioGroup radioGroup1;
-    RadioButton radioButton1;
+
     EditText aInput, bInput, cInput, dInput, yInput;
     int aValue, bValue, cValue, dValue, yValue;
     double mutation;
@@ -25,19 +28,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        radioGroup1 = findViewById(R.id.radioGroup1);
+
     }
 
-    public void checkButton(View v) {
-        int radioId = radioGroup1.getCheckedRadioButtonId();
-        radioButton1 = findViewById(radioId);
-        Toast.makeText(this, "Selected mutation = " + radioButton1.getText(),
-                Toast.LENGTH_SHORT).show();
-    }
-
+    @RequiresApi(api = Build.VERSION_CODES.N)
     public void startExecution(View v) {
-        int radioId1 = radioGroup1.getCheckedRadioButtonId();
-        radioButton1 = findViewById(radioId1);
         aInput = findViewById(R.id.editText1);
         bInput = findViewById(R.id.editText2);
         cInput = findViewById(R.id.editText3);
@@ -48,9 +43,15 @@ public class MainActivity extends AppCompatActivity {
         cValue = Integer.parseInt(cInput.getText().toString());
         dValue = Integer.parseInt(dInput.getText().toString());
         yValue = Integer.parseInt(yInput.getText().toString());
-        mutation = Double.parseDouble(radioButton1.getText().toString());
         hideKeyboard();
-        showToast(countGen());
+
+        int[] coeffs = { aValue, bValue, cValue, dValue };
+        Equation equation = new Equation(coeffs, yValue);
+        Population population = new Population(1000, 4, 10);
+
+        int[] result = population.generate(equation);
+        showToast("Answer is: " + Arrays.toString(result));
+
     }
 
     private void showToast(String text) {
@@ -67,67 +68,102 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String countGen() {
+}
+
+class ShuffleArray {
+    public static void shuffle(int[] array) {
         Random rand = new Random();
-        ArrayList<ArrayList<Integer>> popList = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            ArrayList<Integer> tmp = new ArrayList<>(4);
-            for (int j = 0; j < 4; j++) {
-                tmp.add(rand.nextInt(yValue / 2));
-            }
-            popList.add(tmp);
+        for (int i = 0; i < array.length; i++) {
+            int j = rand.nextInt(array.length);
+            int temp = array[j];
+            array[j] = array[i];
+            array[i] = temp;
         }
-        do {
-            double sum = 0;
-            int[] delta = new int[5];
-            for (int i = 0; i < 5; i++) {
-                delta[i] = Math.abs(yValue - popList.get(i).get(0) * aValue - popList.get(i).get(1) * bValue - popList.get(i).get(2) * cValue - popList.get(i).get(3) * dValue);
-                if (delta[i] == 0) {
-                    return "x1 = " + popList.get(i).get(0) + "\nx2 = " + popList.get(i).get(1) + "\nx3 = " + popList.get(i).get(2) + "\nx4 = " + popList.get(i).get(3) +
-                            "\n\nEquation: " + aValue + " * " + popList.get(i).get(0) + " + " + bValue + " * " + popList.get(i).get(1) + " + " + cValue + " * " + popList.get(i).get(2) + " + " + dValue + " * " + popList.get(i).get(3) + " = " + yValue;
+    }
+}
+
+class Equation {
+    public int result;
+    public int[] coeffs;
+
+    public Equation(int[] coeffs, int result) {
+        this.coeffs = coeffs;
+        this.result = result;
+    }
+
+    public int execute(int[] values) {
+        int value = 0;
+        for (int i = 0; i < this.coeffs.length; i++) {
+            value += coeffs[i] * values[i];
+        }
+        return Math.abs(this.result - value);
+    }
+}
+class Population {
+    public int populationSize;
+    public int chromosomeSize;
+    public int[][] chromosomes;
+    static Random random = new Random();
+
+    public Population(
+            int populationSize,
+            int chromosomeSize,
+            int geneRange
+            ) {
+        this.populationSize = populationSize;
+        this.chromosomeSize = chromosomeSize;
+        this.chromosomes = new int[populationSize][chromosomeSize];
+
+        for (int i = 0; i < populationSize; i++) {
+            for (int j = 0; j < chromosomeSize; j++) {
+
+                this.chromosomes[i][j] = random.nextInt(geneRange);
+            }
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    public int[] generate(Equation equation) {
+        Map<Integer, Integer> deltas = new TreeMap();
+        int[][] tmp = new int[this.chromosomeSize][this.populationSize];
+
+        Iterator it1;
+        Iterator it2;
+        Iterator it3;
+
+        while (true) {
+            for (int i = 0; i < this.populationSize; i++) {
+                int delta = equation.execute(this.chromosomes[i]);
+                deltas.put(i, delta);
+            }
+
+            it1 = deltas.entrySet().stream().sorted(comparingByValue()).iterator();
+            it2 = deltas.entrySet().stream().sorted(comparingByValue()).iterator();
+            it3 = deltas.entrySet().stream().sorted(comparingByValue()).iterator();
+
+            Map.Entry best = (Map.Entry)it3.next();
+            if ((int)best.getValue() == 0) {
+                return this.chromosomes[(int)best.getKey()];
+            }
+
+            for (int i = 0; i < this.populationSize; i++) {
+                Iterator it = i < this.populationSize - 2 ? it1 : it2;
+                Map.Entry entry = (Map.Entry)it.next();
+                int index = (int)entry.getKey();
+                int delta = (int)entry.getValue();
+                int step = (int)(1) + 1;
+                int modify = random.nextInt(step) - ((int)(step / 2));
+                for (int k = 0; k < this.chromosomeSize; k++) {
+                    tmp[k][i] = this.chromosomes[index][k] + modify;
                 }
-                sum += 1.0 / delta[i];
             }
-            double[] percentParent = new double[5];
-            for (int i = 0; i < 5; i++) {
-                percentParent[i] = 1.0 / (delta[i] * sum) * 100;
-            }
-            double[] child = new double[6];
-            child[0] = 0;
-            for (int i = 0; i < 4; i++) {
-                child[i + 1] = child[i] + percentParent[i];
-            }
-            child[4] = 100;
-            ArrayList<ArrayList<Integer>> parentList = new ArrayList<>();
-            int parent;
-            for (int i = 0; i < 10; i++) {
-                parent = rand.nextInt(100);
-                for (int j = 0; j < child.length - 1; j++) {
-                    if (child[j] <= parent && child[j + 1] > parent) {
-                        parentList.add(popList.get(j));
-                    }
+
+            for (int i = 0; i < this.chromosomeSize; i++) {
+                ShuffleArray.shuffle(tmp[i]);
+                for (int j = 0; j < this.populationSize; j++) {
+                    this.chromosomes[j][i] = tmp[i][j];
                 }
             }
-            popList.clear();
-            for (int i = 0; i < parentList.size(); i = i + 2) {
-                ArrayList<Integer> nextGen = new ArrayList<>(4);
-                parent = (int)(Math.random() * 3 + 1);
-                for (int j = 0; j < parent; j++) {
-                    nextGen.add(parentList.get(i).get(j));
-                }
-                for (int j = parent; j < 4; j++) {
-                    nextGen.add(parentList.get(i + 1).get(j));
-                }
-                popList.add(nextGen);
-            }
-            parentList.clear();
-            if (Math.random() < mutation) {
-                int change = rand.nextInt(5);
-                for (int i = 0; i < change; i++) {
-                    popList.get(rand.nextInt(5)).set(rand.nextInt(4),
-                            rand.nextInt(yValue / 2));
-                }
-            }
-        } while (true);
+        }
     }
 }
