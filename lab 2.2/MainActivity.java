@@ -1,6 +1,7 @@
 package com.example.lab22;
 
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -27,6 +28,24 @@ public class MainActivity extends AppCompatActivity {
         customizeGraph(graph, series1, -5, 6);
         graph = findViewById(R.id.graph2);
         customizeGraph(graph, series2, 0, 70);
+
+        double fastFourierTotal = 0;
+        double discreteFourierTotal = 0;
+        for (int i = 0; i < 1000; i++) {
+            long time = System.currentTimeMillis();
+            fastFourier();
+            fastFourierTotal += (System.currentTimeMillis() - time);
+
+            time = System.currentTimeMillis();
+            discreteFourier();
+            discreteFourierTotal += (System.currentTimeMillis() - time);
+        }
+
+        Toast.makeText(getApplicationContext(), String.format(
+                "Results for 1000 iteration: fft = %s ms; dft = %s ms",
+                Math.round(fastFourierTotal),
+                Math.round(discreteFourierTotal)
+        ), Toast.LENGTH_LONG).show();
     }
 
     private DataPoint[] generateSignal(double[] res) {
@@ -72,6 +91,23 @@ public class MainActivity extends AppCompatActivity {
                         - real1 * Math.cos(temp)), 2) + Math.pow((imagine2
                         - imagine1 * Math.sin(temp)), 2)));
             }
+        }
+        return res;
+    }
+
+    private DataPoint[] discreteFourier() {
+        double[] real = new double[N];
+        double[] imagine = new double[N];
+        DataPoint[] res = new DataPoint[N];
+
+
+
+        for (int p = 0; p < N; p++) {
+            for (int k = 0; k < N; k++) {
+                real[p] += signal[k] * Math.cos(2 * Math.PI * p * k / N);
+                imagine[p] += signal[k] * Math.sin(2 * Math.PI * p * k / N);
+            }
+            res[p] = new DataPoint(p, Math.sqrt(Math.pow(real[p], 2) + Math.pow(imagine[p], 2)));
         }
         return res;
     }
